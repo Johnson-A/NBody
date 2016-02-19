@@ -1,0 +1,8 @@
+[package]
+authors = ["Alex Johnson <alex_johnson3@yahoo.com>"]
+name = "NBody"
+version = "0.1.0"
+
+[dependencies]
+num = "*"
+rand = "*"
