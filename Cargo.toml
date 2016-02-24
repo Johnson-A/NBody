@@ -1,8 +1,10 @@
 [package]
 authors = ["Alex Johnson <alex_johnson3@yahoo.com>"]
-name = "NBody"
+name = "nbody"
 version = "0.1.0"
 
 [dependencies]
+crossbeam = "*"
 num = "*"
+num_cpus = "*"
 rand = "*"
