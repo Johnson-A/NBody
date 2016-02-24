@@ -10,17 +10,18 @@ use rand::Rng;
 use std::{mem, ptr};
 use std::ops::{Add, Sub, Mul, Neg};
 
+const THETA: f64 = 0.6;
+const N: usize = 100_000;
+const DT: f64 = 0.0000000001;
 
 fn main() {
     println!("Vec3 {:?}", mem::size_of::<Vec3<f64>>());
     println!("Body {:?}", mem::size_of::<Body>());
     println!("Section {:?}", mem::size_of::<Section>());
 
-    let n = 100_000;
-    let dt = 0.00000001;
-    let mut bodies: Vec<Body> = Vec::with_capacity(n);
+    let mut bodies: Vec<Body> = Vec::with_capacity(N);
     let mut rng = rand::thread_rng();
-    for _ in 0..n {
+    for _ in 0..N {
         bodies.push(Body {
             x: Vec3(rng.gen(), rng.gen(), rng.gen()),
             // v: Vec3(rng.gen(), rng.gen(), rng.gen()),
@@ -30,10 +31,10 @@ fn main() {
     }
 
     let mut t = 0.0;
-    let mut forces = vec![Vec3(0.0,0.0,0.0); n];
+    let mut forces = vec![Vec3(0.0,0.0,0.0); N];
 
     loop {
-        t += dt;
+        t += DT;
 
         {
             let mut parent = Section {
@@ -48,12 +49,12 @@ fn main() {
                 parent.add(body);
             }
 
-            parent.compute(&bodies, 0.6, &mut forces);
+            parent.compute(&bodies, &mut forces);
         }
 
         for (b,&f) in bodies.iter_mut().zip(&forces) {
-            b.v = b.v + f * dt;
-            b.x = b.x + b.v * dt;
+            b.v = b.v + f * DT;
+            b.x = b.x + b.v * DT;
         }
         println!("{}", t)
     }
@@ -131,7 +132,7 @@ struct Section<'a> {
 }
 
 impl<'a> Section<'a> {
-    fn compute(&self, bodies: &Vec<Body>, theta: f64, forces: &mut Vec<Vec3<f64>>) {
+    fn compute(&self, bodies: &[Body], forces: &mut [Vec3<f64>]) {
         let split = forces.len() / num_cpus::get();
         let iter = forces.chunks_mut(split).zip(bodies.chunks(split));
 
@@ -139,16 +140,16 @@ impl<'a> Section<'a> {
             for (f,b) in iter {
                 scope.spawn(move || {
                     for (f1,b1) in f.iter_mut().zip(b) {
-                        *f1 = self.force(b1, theta);
+                        *f1 = self.force(b1);
                     }
                 });
             });
         // for (f,b) in forces.iter_mut().zip(bodies) {
-        //     *f = self.force(b, theta);
+        //     *f = self.force(b, THETA);
         // }
     }
 
-    fn force(&self, body: &Body, theta: f64) -> Vec3<f64> {
+    fn force(&self, body: &Body) -> Vec3<f64> {
         let dx = self.center - body.x;
         let inv_dist_sq = 1.0 / dx.dot(dx);
         let inv_dist = inv_dist_sq.sqrt();
@@ -159,10 +160,10 @@ impl<'a> Section<'a> {
             self.width
         };
 
-        if width * inv_dist <= theta {
+        if width * inv_dist <= THETA {
             dx * self.total_mass * inv_dist_sq * inv_dist
         } else if let Some(ref sub) = self.sub {
-            sub.iter().fold(Vec3(0.0, 0.0, 0.0), |sum, sr| sum + sr.force(body, theta))
+            sub.iter().fold(Vec3(0.0, 0.0, 0.0), |sum, sr| sum + sr.force(body))
         } else {
             Vec3(0.0, 0.0, 0.0) // TODO: don't even calculate
             // unreachable!("{:?} {:?} {}", self.body, self.sub, width)
