@@ -4,7 +4,9 @@ name = "nbody"
 version = "0.1.0"
 
 [dependencies]
-crossbeam = "*"
 num = "*"
-num_cpus = "*"
 rand = "*"
+rayon = "*"
+
+[profile.release]
+opt-level = 3

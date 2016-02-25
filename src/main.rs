@@ -1,10 +1,10 @@
 #![feature(box_syntax, box_patterns)]
 extern crate rand;
 extern crate num;
-extern crate crossbeam;
-extern crate num_cpus;
+extern crate rayon;
 
 use num::Num;
+use rayon::prelude::*;
 
 use rand::Rng;
 use std::{mem, ptr};
@@ -133,20 +133,9 @@ struct Section<'a> {
 
 impl<'a> Section<'a> {
     fn compute(&self, bodies: &[Body], forces: &mut [Vec3<f64>]) {
-        let split = forces.len() / num_cpus::get();
-        let iter = forces.chunks_mut(split).zip(bodies.chunks(split));
-
-        crossbeam::scope(|scope|
-            for (f,b) in iter {
-                scope.spawn(move || {
-                    for (f1,b1) in f.iter_mut().zip(b) {
-                        *f1 = self.force(b1);
-                    }
-                });
-            });
-        // for (f,b) in forces.iter_mut().zip(bodies) {
-        //     *f = self.force(b, THETA);
-        // }
+        forces.par_iter_mut()
+              .zip(bodies.par_iter())
+              .for_each(|(f,b)| *f = self.force(b))
     }
 
     fn force(&self, body: &Body) -> Vec3<f64> {
