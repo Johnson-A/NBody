@@ -5,15 +5,6 @@ use std::ops::{Add, Sub, Mul, Neg, AddAssign, DivAssign, MulAssign};
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Vec3<T: Num + Copy>(pub T, pub T, pub T);
 
-impl Vec3<f64> {
-    #[inline(always)]
-    pub fn dist(&self, point: Vec3<f64>) -> (Vec3<f64>, f64, f64) {
-        let dx = *self - point;
-        let inv_dist_sq = 1.0 / dx.dot(dx);
-        (dx, inv_dist_sq, inv_dist_sq.sqrt())
-    }
-}
-
 impl<T: Num + Copy> Zero for Vec3<T> {
     fn zero() -> Self {
         Vec3(T::zero(), T::zero(), T::zero())
@@ -34,8 +25,8 @@ impl<T: Num + Copy> Add for Vec3<T> {
 }
 
 impl<T: Num + Copy + AddAssign> AddAssign for Vec3<T> {
-    fn add_assign(&mut self, _rhs: Self) {
-        *self = *self + _rhs;
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 
@@ -54,14 +45,14 @@ impl<T: Num + Copy> Mul<T> for Vec3<T> {
 }
 
 impl<T: Num + Copy + MulAssign> MulAssign<T> for Vec3<T> {
-    fn mul_assign(&mut self, _rhs: T) {
-        *self = *self * _rhs;
+    fn mul_assign(&mut self, rhs: T) {
+        *self = *self * rhs;
     }
 }
 
 impl<T: Num + Copy> DivAssign<T> for Vec3<T> {
-    fn div_assign(&mut self, _rhs: T) {
-        *self = *self * (T::one() / _rhs);
+    fn div_assign(&mut self, rhs: T) {
+        *self = *self * (T::one() / rhs);
     }
 }
 
