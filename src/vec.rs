@@ -1,6 +1,6 @@
 use num::Num;
 use core::num::Zero;
-use std::ops::{Add, Sub, Mul, Neg};
+use std::ops::{Add, Sub, Mul, Neg, AddAssign, DivAssign, MulAssign};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Vec3<T: Num + Copy>(pub T, pub T, pub T);
@@ -33,6 +33,12 @@ impl<T: Num + Copy> Add for Vec3<T> {
     }
 }
 
+impl<T: Num + Copy + AddAssign> AddAssign for Vec3<T> {
+    fn add_assign(&mut self, _rhs: Self) {
+        *self = *self + _rhs;
+    }
+}
+
 impl<T: Num + Copy> Sub for Vec3<T> {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self {
@@ -44,6 +50,18 @@ impl<T: Num + Copy> Mul<T> for Vec3<T> {
     type Output = Self;
     fn mul(self, rhs: T) -> Self {
         Vec3(self.0 * rhs, self.1 * rhs, self.2 * rhs)
+    }
+}
+
+impl<T: Num + Copy + MulAssign> MulAssign<T> for Vec3<T> {
+    fn mul_assign(&mut self, _rhs: T) {
+        *self = *self * _rhs;
+    }
+}
+
+impl<T: Num + Copy> DivAssign<T> for Vec3<T> {
+    fn div_assign(&mut self, _rhs: T) {
+        *self = *self * (T::one() / _rhs);
     }
 }
 
