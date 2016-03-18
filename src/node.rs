@@ -158,7 +158,9 @@ impl Section {
 
         let mut parent_children = [None, None, None, None];
 
-        self.total_mass = children.into_par_iter().zip(parent_children.par_iter_mut()).weight_max().enumerate().map(|(i, (mut node, pn))| {
+        self.total_mass = children.into_par_iter().weight_max()
+                            .zip(parent_children.par_iter_mut())
+                            .enumerate().map(|(i, (mut node, pn))| {
             for body in bodies {
                 if i == self.position(body.x) {
                     node.add(body.x, body.m);

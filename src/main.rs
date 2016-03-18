@@ -19,11 +19,11 @@ use time::precise_time_s;
 
 const THETA: f64 = 0.3;
 const THETA_SQUARED: f64 = THETA * THETA;
-const N: usize = 1000_000;
+const N: usize = 100_000;
 const DT: f64 = 1E-6;
 
 fn main() {
-    let (width, height) = (1200, 1200);
+    let (width, height) = (900, 900);
 
     let mut bodies = Body::generate(N);
 
@@ -45,7 +45,7 @@ fn main() {
 
             bodies.par_iter_mut().for_each(Body::advance);
 
-            if step % 100 == 0 {
+            if step % 1 == 0 {
                 println!("{:.3}", step as f64 / (precise_time_s() - start))
             }
 
@@ -58,8 +58,8 @@ fn main() {
     let window: PistonWindow =
                     WindowSettings::new("NBody", [width, height])
                     .exit_on_esc(true)
-                    // .opengl(OpenGL::V4_5)
-                    // .vsync(true)
+                    // .opengl(OpenGL::V4_1)
+                    .vsync(true)
                     .build()
                     .unwrap();
 
