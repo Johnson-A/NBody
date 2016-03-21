@@ -4,6 +4,7 @@ name = "nbody"
 version = "0.1.0"
 
 [dependencies]
+itertools = "*"
 num = "*"
 piston_window = "*"
 rand = "*"

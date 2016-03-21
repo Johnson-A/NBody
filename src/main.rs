@@ -4,6 +4,7 @@ extern crate num;
 extern crate rayon;
 extern crate time;
 extern crate piston_window;
+extern crate itertools;
 
 mod node;
 mod vec;
@@ -19,7 +20,7 @@ use time::precise_time_s;
 
 const THETA: f64 = 0.3;
 const THETA_SQUARED: f64 = THETA * THETA;
-const N: usize = 100_000;
+const N: usize = 1000_000;
 const DT: f64 = 1E-6;
 
 fn main() {
@@ -27,9 +28,7 @@ fn main() {
 
     let mut bodies = Body::generate(N);
 
-    let positions = Arc::new(Mutex::new(
-        bodies.iter().map(|b| b.x).collect::<Vec<_>>()
-    ));
+    let positions = Arc::new(Mutex::new(vec![]));
     let write_data = positions.clone();
 
     thread::spawn(move || {
@@ -49,9 +48,7 @@ fn main() {
                 println!("{:.3}", step as f64 / (precise_time_s() - start))
             }
 
-            for (w, b) in write_data.lock().unwrap().iter_mut().zip(&bodies) {
-                *w = b.x;
-            }
+            *write_data.lock().unwrap() = parent.render(parent.total_mass);
         }
     });
 
@@ -67,10 +64,11 @@ fn main() {
         e.draw_2d(|c, g| {
             clear(color::WHITE, g);
 
-            for x in positions.lock().unwrap().iter() {
+            for &(upp_left, size, color) in positions.lock().unwrap().iter() {
+                // println!("{:?} {} {}", upp_left, size, color);
                 rectangle(
-                    [1.0, 0.0, 0.0, 1.0],
-                    [x.0 * width as f64, x.1 * height as f64, 1.0, 1.0],
+                    [1.0, 0.0, 0.0, color as f32 * 10000.0],
+                    [upp_left.0 * width as f64, upp_left.1 * height as f64, size * width as f64, size * height as f64],
                     c.transform, g);
             }
         });

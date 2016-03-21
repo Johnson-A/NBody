@@ -63,7 +63,7 @@ impl<T: Num + Copy + MulAssign> MulAssign<T> for Vec2<T> {
 
 impl<T: Num + Copy> DivAssign<T> for Vec2<T> {
     fn div_assign(&mut self, rhs: T) {
-        *self = *self * (T::one() / rhs);
+        *self = *self / rhs;
     }
 }
 

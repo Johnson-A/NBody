@@ -4,6 +4,7 @@ use vec::Vec2;
 use std::num::Zero;
 use rayon::prelude::*;
 use rand::random;
+use itertools::Itertools;
 
 #[derive(Debug)]
 pub struct Body {
@@ -32,13 +33,22 @@ impl Body {
     }
 }
 
+type SubNodes = [Option<Section>; 4];
+type Children = Option<Box<SubNodes>>;
+
+/// This macro is needed because calling &mut self captures all of self as mutable
+/// In the future, we should be able to selectively borrow sub fields of a struct.
+macro_rules! mut_children {
+    ($e:expr) => ($e.sub.as_mut().unwrap());
+}
+
 #[derive(Debug)]
 pub struct Section {
     center: Vec2<f64>,
     com: Vec2<f64>,
     pub total_mass: f64,
     width: f64,
-    sub: Option<Box<[Option<Section>; 4]>>,
+    sub: Children,
 }
 
 impl Section {
@@ -77,7 +87,7 @@ impl Section {
     }
 
     fn attract(&self, body: &mut Body) {
-        for sect in self.sub.as_ref().unwrap().iter() {
+        for sect in self.children().iter() {
             if let Some(ref s) = *sect {
                 if s.com != body.x {
                     let dx = s.com - body.x;
@@ -93,9 +103,51 @@ impl Section {
         }
     }
 
+    pub fn aggregate(&mut self) {
+        for sect in mut_children!(self).iter_mut() {
+            if let Some(ref mut sect) = *sect {
+                if sect.sub.is_some() {
+                    sect.aggregate();
+                }
+                self.com += sect.com * sect.total_mass;
+                self.total_mass += sect.total_mass;
+            }
+        }
+        self.com /= self.total_mass;
+    }
+
+    fn position(&self, point: Vec2<f64>) -> usize {
+        (if point.0 > self.center.0 { 1 } else { 0 } +
+         if point.1 > self.center.1 { 2 } else { 0 })
+    }
+
+    fn offset(center: Vec2<f64>, point: Vec2<f64>, dist: f64) -> Vec2<f64> {
+        Vec2(if point.0 > center.0 { dist } else { -dist },
+             if point.1 > center.1 { dist } else { -dist })
+    }
+
+    fn density(&self) -> f64 {
+        self.total_mass / self.width / self.width
+    }
+
+    fn children(&self) -> &SubNodes {
+        self.sub.as_ref().unwrap()
+    }
+
+    pub fn render(&self, total: f64) -> Vec<(Vec2<f64>, f64, f64)> {
+        if self.total_mass / total < 1.0 / 10000.0 {
+            let upp_left = self.center - (Vec2(1.0, 1.0) * self.width);
+            vec![(upp_left, self.width * 2.0, self.total_mass / total)]
+        } else {
+            self.children().iter().flatten().map(|node|
+                node.render(total)
+            ).flatten().collect()
+        }
+    }
+
     pub fn add(&mut self, point: Vec2<f64>, mass: f64) {
         let pos = self.position(point);
-        let n = &mut self.sub.as_mut().unwrap()[pos];
+        let n = &mut mut_children!(self)[pos];
 
         if let Some(ref mut sect) = *n {
             if !sect.sub.is_some() {
@@ -122,29 +174,7 @@ impl Section {
         }
     }
 
-    pub fn aggregate(&mut self) {
-        for sect in self.sub.as_mut().unwrap().iter_mut() {
-            if let Some(ref mut sect) = *sect {
-                if sect.sub.is_some() {
-                    sect.aggregate();
-                }
-                self.com += sect.com * sect.total_mass;
-                self.total_mass += sect.total_mass;
-            }
-        }
-        self.com /= self.total_mass;
-    }
-
-    fn position(&self, point: Vec2<f64>) -> usize {
-        (if point.0 > self.center.0 { 1 } else { 0 } +
-         if point.1 > self.center.1 { 2 } else { 0 })
-    }
-
-    fn offset(center: Vec2<f64>, point: Vec2<f64>, dist: f64) -> Vec2<f64> {
-        Vec2(if point.0 > center.0 { dist } else { -dist },
-             if point.1 > center.1 { dist } else { -dist })
-    }
-
+    /// TODO: fix this
     pub fn parallel_add(&mut self, bodies: &[Body]) {
         let new_width = self.width / 2.0;
         let offset = [-new_width, new_width];
@@ -166,7 +196,7 @@ impl Section {
                     node.add(body.x, body.m);
                 }
             }
-            node.aggregate();
+            node.aggregate(); // Aggregate in parallel
             let m = node.total_mass;
             *pn = Some(node);
             m
