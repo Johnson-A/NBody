@@ -8,9 +8,9 @@ use itertools::Itertools;
 
 #[derive(Debug)]
 pub struct Body {
-    pub x: Vec2<f64>,
-    pub v: Vec2<f64>,
-    pub a: Vec2<f64>,
+    pub x: Vector,
+    pub v: Vector,
+    pub a: Vector,
     pub m: f64,
 }
 
@@ -33,6 +33,7 @@ impl Body {
     }
 }
 
+pub type Vector = Vec2<f64>;
 type SubNodes = [Option<Section>; 4];
 type Children = Option<Box<SubNodes>>;
 
@@ -44,15 +45,15 @@ macro_rules! mut_children {
 
 #[derive(Debug)]
 pub struct Section {
-    center: Vec2<f64>,
-    com: Vec2<f64>,
+    center: Vector,
+    com: Vector,
     pub total_mass: f64,
     width: f64,
     sub: Children,
 }
 
 impl Section {
-    fn new(old_center: Vec2<f64>, width: f64, offset: Vec2<f64>) -> Self {
+    fn new(old_center: Vector, width: f64, offset: Vector) -> Self {
         Section {
             center: old_center + offset,
             width: width,
@@ -86,42 +87,40 @@ impl Section {
         bodies.par_iter_mut().for_each(|b| self.attract(b))
     }
 
-    fn attract(&self, body: &mut Body) {
-        for sect in self.children().iter() {
-            if let Some(ref s) = *sect {
-                if s.com != body.x {
-                    let dx = s.com - body.x;
-                    let inv_dist_sq = 1.0 / (dx.dot(dx) + 0.0001);
+    fn is_node(&self) -> bool { self.sub.is_some() }
 
-                    if s.width * s.width * inv_dist_sq < THETA_SQUARED {
-                        body.a += dx * (self.total_mass * inv_dist_sq * inv_dist_sq.sqrt());
-                    } else {
-                        s.attract(body);
-                    }
+    fn attract(&self, body: &mut Body) {
+        for s in self.children().iter().flatten() {
+            if s.com != body.x {
+                let dx = s.com - body.x;
+                let inv_dist_sq = 1.0 / (dx.dot(dx) + 0.0001);
+
+                if s.width * s.width * inv_dist_sq < THETA_SQUARED {
+                    body.a += dx * (self.total_mass * inv_dist_sq * inv_dist_sq.sqrt());
+                } else {
+                    s.attract(body);
                 }
             }
         }
     }
 
     pub fn aggregate(&mut self) {
-        for sect in mut_children!(self).iter_mut() {
-            if let Some(ref mut sect) = *sect {
-                if sect.sub.is_some() {
-                    sect.aggregate();
-                }
-                self.com += sect.com * sect.total_mass;
-                self.total_mass += sect.total_mass;
+        for sect in mut_children!(self).iter_mut().flatten() {
+            if sect.is_node() {
+                sect.aggregate();
             }
+            self.com += sect.com * sect.total_mass;
+            self.total_mass += sect.total_mass;
         }
         self.com /= self.total_mass;
     }
 
-    fn position(&self, point: Vec2<f64>) -> usize {
+    fn position(&self, point: Vector) -> usize {
         (if point.0 > self.center.0 { 1 } else { 0 } +
          if point.1 > self.center.1 { 2 } else { 0 })
     }
 
-    fn offset(center: Vec2<f64>, point: Vec2<f64>, dist: f64) -> Vec2<f64> {
+    fn offset(center: Vector, point: Vector, dist: f64) -> Vector {
         Vec2(if point.0 > center.0 { dist } else { -dist },
              if point.1 > center.1 { dist } else { -dist })
     }
@@ -134,7 +133,7 @@ impl Section {
         self.sub.as_ref().unwrap()
     }
 
-    pub fn render(&self, total: f64) -> Vec<(Vec2<f64>, f64, f64)> {
+    pub fn render(&self, total: f64) -> Vec<(Vector, f64, f64)> {
         if self.total_mass / total < 1.0 / 10000.0 {
             let upp_left = self.center - (Vec2(1.0, 1.0) * self.width);
             vec![(upp_left, self.width * 2.0, self.total_mass / total)]
@@ -145,7 +144,7 @@ impl Section {
         }
     }
 
-    pub fn add(&mut self, point: Vec2<f64>, mass: f64) {
+    pub fn add(&mut self, point: Vector, mass: f64) {
         let pos = self.position(point);
         let n = &mut mut_children!(self)[pos];
 
