@@ -2,8 +2,7 @@ use num::{Num, traits};
 use std::num::Zero;
 use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, DivAssign, MulAssign};
 
-pub trait NumCopy: Num + Copy {}
-impl<T> NumCopy for T where T: Num + Copy {}
+trait_alias!(pub NumCopy = Num + Copy);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Vec2<T: NumCopy>(pub T, pub T);

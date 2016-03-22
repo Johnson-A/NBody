@@ -6,8 +6,11 @@ extern crate time;
 extern crate piston_window;
 extern crate itertools;
 
-mod node;
-mod vec;
+#[macro_use]
+pub mod util;
+
+pub mod node;
+pub mod vec;
 
 use node::*;
 
