@@ -2,10 +2,13 @@ use num::{Num, traits};
 use std::num::Zero;
 use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, DivAssign, MulAssign};
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct Vec2<T: Num + Copy>(pub T, pub T);
+pub trait NumCopy: Num + Copy {}
+impl<T> NumCopy for T where T: Num + Copy {}
 
-impl<T: Num + Copy + traits::Float> Vec2<T> {
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct Vec2<T: NumCopy>(pub T, pub T);
+
+impl<T: NumCopy + traits::Float> Vec2<T> {
     pub fn dot(&self, rhs: Vec2<T>) -> T {
         self.0 * rhs.0 + self.1 * rhs.1
     }
@@ -15,53 +18,53 @@ impl<T: Num + Copy + traits::Float> Vec2<T> {
     }
 }
 
-impl<T: Num + Copy> Zero for Vec2<T> {
+impl<T: NumCopy> Zero for Vec2<T> {
     fn zero() -> Self {
         Vec2(T::zero(), T::zero())
     }
 }
 
-impl<T: Num + Copy> Add for Vec2<T> {
+impl<T: NumCopy> Add for Vec2<T> {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
         Vec2(self.0 + rhs.0, self.1 + rhs.1)
     }
 }
 
-impl<T: Num + Copy + AddAssign> AddAssign for Vec2<T> {
+impl<T: NumCopy> AddAssign for Vec2<T> {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl<T: Num + Copy> Sub for Vec2<T> {
+impl<T: NumCopy> Sub for Vec2<T> {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self {
         Vec2(self.0 - rhs.0, self.1 - rhs.1)
     }
 }
 
-impl<T: Num + Copy> Mul<T> for Vec2<T> {
+impl<T: NumCopy> Mul<T> for Vec2<T> {
     type Output = Self;
     fn mul(self, rhs: T) -> Self {
         Vec2(self.0 * rhs, self.1 * rhs)
     }
 }
 
-impl<T: Num + Copy> Div<T> for Vec2<T> {
+impl<T: NumCopy> Div<T> for Vec2<T> {
     type Output = Self;
     fn div(self, rhs: T) -> Self {
         Vec2(self.0 / rhs, self.1 / rhs)
     }
 }
 
-impl<T: Num + Copy + MulAssign> MulAssign<T> for Vec2<T> {
+impl<T: NumCopy> MulAssign<T> for Vec2<T> {
     fn mul_assign(&mut self, rhs: T) {
         *self = *self * rhs;
     }
 }
 
-impl<T: Num + Copy> DivAssign<T> for Vec2<T> {
+impl<T: NumCopy> DivAssign<T> for Vec2<T> {
     fn div_assign(&mut self, rhs: T) {
         *self = *self / rhs;
     }
@@ -81,7 +84,7 @@ impl Div<Vec2<f64>> for f64 {
     }
 }
 
-impl<T: Num + Copy> Neg for Vec2<T> {
+impl<T: NumCopy> Neg for Vec2<T> {
     type Output = Self;
     fn neg(self) -> Self {
         self * (T::zero() - T::one())
