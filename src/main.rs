@@ -23,7 +23,7 @@ use time::precise_time_s;
 
 const THETA: f64 = 0.3;
 const THETA_SQUARED: f64 = THETA * THETA;
-const N: usize = 1000_000;
+const N: usize = 100_000;
 const DT: f64 = 1E-6;
 
 fn main() {
@@ -35,7 +35,7 @@ fn main() {
     let write_data = positions.clone();
 
     thread::spawn(move || {
-        let mut step = 0;
+        let mut step: u64 = 0;
         let start = precise_time_s();
 
         loop {
@@ -55,7 +55,7 @@ fn main() {
         }
     });
 
-    let window: PistonWindow =
+    let mut window: PistonWindow =
                     WindowSettings::new("NBody", [width, height])
                     .exit_on_esc(true)
                     // .opengl(OpenGL::V4_1)
@@ -63,8 +63,8 @@ fn main() {
                     .build()
                     .unwrap();
 
-    for e in window {
-        e.draw_2d(|c, g| {
+    while let Some(e) = window.next() {
+        window.draw_2d(&e, |c, g| {
             clear(color::WHITE, g);
 
             for &(upp_left, size, color) in positions.lock().unwrap().iter() {

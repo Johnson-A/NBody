@@ -1,3 +1,4 @@
+use node::Elem;
 use num::{Num, traits};
 use std::num::Zero;
 use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, DivAssign, MulAssign};
@@ -7,7 +8,7 @@ trait_alias!(pub NumCopy = Num + Copy);
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Vec2<T: NumCopy>(pub T, pub T);
 
-impl<T: NumCopy + traits::Float> Vec2<T> {
+impl<T: Num + traits::Float> Vec2<T> {
     pub fn dot(&self, rhs: Vec2<T>) -> T {
         self.0 * rhs.0 + self.1 * rhs.1
     }
@@ -69,16 +70,16 @@ impl<T: NumCopy> DivAssign<T> for Vec2<T> {
     }
 }
 
-impl Mul<Vec2<f64>> for f64 {
-    type Output = Vec2<f64>;
-    fn mul(self, rhs: Vec2<f64>) -> Vec2<f64> {
+impl Mul<Vec2<Elem>> for Elem {
+    type Output = Vec2<Elem>;
+    fn mul(self, rhs: Vec2<Elem>) -> Vec2<Elem> {
         rhs * self
     }
 }
 
-impl Div<Vec2<f64>> for f64 {
-    type Output = Vec2<f64>;
-    fn div(self, rhs: Vec2<f64>) -> Vec2<f64> {
+impl Div<Vec2<Elem>> for Elem {
+    type Output = Vec2<Elem>;
+    fn div(self, rhs: Vec2<Elem>) -> Vec2<Elem> {
         rhs * (1.0 / self)
     }
 }

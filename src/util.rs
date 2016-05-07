@@ -6,8 +6,8 @@ macro_rules! items {
 macro_rules! trait_alias {
     ($vis:ident $name:ident = $($base:tt)+) => {
         items! {
-            $vis trait $name: $($base)+ { }
-            impl<T: $($base)+> $name for T { }
+            $vis trait $name: $($base)+ {}
+            impl<T: $($base)+> $name for T {}
         }
     };
 }

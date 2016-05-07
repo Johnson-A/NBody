@@ -33,7 +33,8 @@ impl Body {
     }
 }
 
-pub type Vector = Vec2<f64>;
+pub type Elem = f64;
+pub type Vector = Vec2<Elem>;
 type SubNodes = [Option<Section>; 4];
 type Children = Option<Box<SubNodes>>;
 
@@ -135,6 +136,7 @@ impl Section {
 
     pub fn render(&self, total: f64) -> Vec<(Vector, f64, f64)> {
         if self.total_mass / total < 1.0 / 10000.0 {
+        // if self.width < 0.01 {            
             let upp_left = self.center - (Vec2(1.0, 1.0) * self.width);
             vec![(upp_left, self.width * 2.0, self.total_mass / total)]
         } else {
