@@ -1,10 +1,12 @@
-use ::{DT, THETA_SQUARED};
+use super::{DT, THETA_SQUARED};
 use vec::Vec2;
 
 use std::num::Zero;
+use std::ops::{Deref, DerefMut};
 use rayon::prelude::*;
 use rand::random;
-use itertools::Itertools;
+use itertools::{Flatten, Itertools};
+use std::slice::{Iter, IterMut};
 
 #[derive(Debug)]
 pub struct Body {
@@ -15,10 +17,33 @@ pub struct Body {
 }
 
 impl Body {
-    pub fn generate(num_bodies: usize) -> Vec<Body> {
-        (0..num_bodies).map(|_|
+    pub fn generate_collision(num_bodies: usize) -> Vec<Body> {
+        (0..num_bodies/2).map(
+            |_|
             Body {
-                x: Vec2(random(), random()),
+                x: Vec2(random::<f64>() / 2.0, random::<f64>() / 2.0),
+                v: Vec2(0.0, 0.0),
+                a: Vec2::zero(),
+                m: 1.0,
+            }
+        ).chain(
+            (0..num_bodies/2).map(
+                |_|
+                Body {
+                    x: Vec2((1.0 + random::<f64>()) / 2.0, (1.0 + random::<f64>()) / 2.0),
+                    v: Vec2(0.0, 0.0),
+                    a: Vec2::zero(),
+                    m: 1.0,
+                }
+            )
+        ).collect()
+    }
+
+    pub fn generate(num_bodies: usize) -> Vec<Body> {
+        (0..num_bodies).map(
+            |_|
+            Body {
+                x: Vec2(random::<f64>(), random::<f64>()),
                 v: Vec2(0.0, 0.0),
                 a: Vec2::zero(),
                 m: 1.0,
@@ -36,12 +61,41 @@ impl Body {
 pub type Elem = f64;
 pub type Vector = Vec2<Elem>;
 type SubNodes = [Option<Section>; 4];
-type Children = Option<Box<SubNodes>>;
+type PointerChildren = Option<Box<SubNodes>>;
 
-/// This macro is needed because calling &mut self captures all of self as mutable
-/// In the future, we should be able to selectively borrow sub fields of a struct.
-macro_rules! mut_children {
-    ($e:expr) => ($e.sub.as_mut().unwrap());
+#[derive(Debug)]
+struct Children(PointerChildren);
+
+impl Deref for Children {
+    type Target = PointerChildren;
+
+    fn deref(&self) -> &PointerChildren {
+        &self.0
+    }
+}
+
+impl DerefMut for Children {
+    fn deref_mut(&mut self) -> &mut PointerChildren {
+        &mut self.0
+    }
+}
+
+impl<'a> Children {
+    fn children(&self) -> &SubNodes {
+        self.as_ref().unwrap()
+    }
+
+    fn mut_children(&mut self) -> &mut SubNodes {
+        self.as_mut().unwrap()
+    }
+
+    fn all_children(&'a self) -> Flatten<Iter<'a, Option<Section>>> {
+        self.children().iter().flatten()
+    }
+
+    fn mut_all_children(&'a mut self) -> Flatten<IterMut<'a, Option<Section>>> {
+        self.mut_children().iter_mut().flatten()
+    }
 }
 
 #[derive(Debug)]
@@ -58,7 +112,7 @@ impl Section {
         Section {
             center: old_center + offset,
             width: width,
-            sub: Some(box [None, None, None, None]),
+            sub: Children(Some(box [None, None, None, None])),
             com: Vec2::zero(),
             total_mass: 0.0,
         }
@@ -91,7 +145,7 @@ impl Section {
     fn is_node(&self) -> bool { self.sub.is_some() }
 
     fn attract(&self, body: &mut Body) {
-        for s in self.children().iter().flatten() {
+        for s in self.sub.all_children() {
             if s.com != body.x {
                 let dx = s.com - body.x;
                 let inv_dist_sq = 1.0 / (dx.dot(dx) + 0.0001);
@@ -106,7 +160,7 @@ impl Section {
     }
 
     pub fn aggregate(&mut self) {
-        for sect in mut_children!(self).iter_mut().flatten() {
+        for sect in self.sub.mut_all_children() {
             if sect.is_node() {
                 sect.aggregate();
             }
@@ -126,29 +180,31 @@ impl Section {
              if point.1 > center.1 { dist } else { -dist })
     }
 
-    fn density(&self) -> f64 {
-        self.total_mass / self.width / self.width
+    pub fn density(&self) -> f64 {
+        self.total_mass / self.width / self.width / 4.0
     }
 
-    fn children(&self) -> &SubNodes {
-        self.sub.as_ref().unwrap()
-    }
+    pub fn render(&self, reference: f64, total: f64) -> Vec<(Vector, f64, f64)> {
+        let density = self.density();
 
-    pub fn render(&self, total: f64) -> Vec<(Vector, f64, f64)> {
-        if self.total_mass / total < 1.0 / 10000.0 {
-        // if self.width < 0.01 {            
+        if self.total_mass / total < 1E-4 {
             let upp_left = self.center - (Vec2(1.0, 1.0) * self.width);
-            vec![(upp_left, self.width * 2.0, self.total_mass / total)]
+
+            if !self.is_node() {
+                vec![(upp_left, 0.0, 1.0)]
+            } else {
+                vec![(upp_left, self.width * 2.0, (density / reference).ln() / 5.0)]
+            }
         } else {
-            self.children().iter().flatten().map(|node|
-                node.render(total)
+            self.sub.all_children().map(|node|
+                node.render(reference, total)
             ).flatten().collect()
         }
     }
 
     pub fn add(&mut self, point: Vector, mass: f64) {
         let pos = self.position(point);
-        let n = &mut mut_children!(self)[pos];
+        let n = &mut self.sub.mut_children()[pos];
 
         if let Some(ref mut sect) = *n {
             if !sect.sub.is_some() {
@@ -160,7 +216,7 @@ impl Section {
                 let offset = Section::offset(self.center, old_point, sect.width);
                 sect.center = self.center + offset;
 
-                sect.sub = Some(box [None, None, None, None]);
+                sect.sub = Children(Some(box [None, None, None, None]));
                 sect.add(old_point, old_mass);
             }
             sect.add(point, mass);
@@ -170,7 +226,7 @@ impl Section {
                 total_mass: mass,
                 center: Vec2::zero(),
                 width: 0.0,
-                sub: None,
+                sub: Children(None),
             });
         }
     }
@@ -203,6 +259,6 @@ impl Section {
             m
         }).sum();
 
-        self.sub = Some(box parent_children);
+        self.sub = Children(Some(box parent_children));
     }
 }

@@ -23,13 +23,13 @@ use time::precise_time_s;
 
 const THETA: f64 = 0.3;
 const THETA_SQUARED: f64 = THETA * THETA;
-const N: usize = 100_000;
-const DT: f64 = 1E-6;
+const N: usize = 1_000_000;
+const DT: f64 = 1E-5;
 
 fn main() {
-    let (width, height) = (900, 900);
+    let (width, height) = (700, 700);
 
-    let mut bodies = Body::generate(N);
+    let mut bodies = Body::generate_collision(N);
 
     let positions = Arc::new(Mutex::new(vec![]));
     let write_data = positions.clone();
@@ -51,7 +51,7 @@ fn main() {
                 println!("{:.3}", step as f64 / (precise_time_s() - start))
             }
 
-            *write_data.lock().unwrap() = parent.render(parent.total_mass);
+            *write_data.lock().unwrap() = parent.render(parent.density(), parent.total_mass);
         }
     });
 
@@ -70,7 +70,7 @@ fn main() {
             for &(upp_left, size, color) in positions.lock().unwrap().iter() {
                 // println!("{:?} {} {}", upp_left, size, color);
                 rectangle(
-                    [1.0, 0.0, 0.0, color as f32 * 10000.0],
+                    [1.0, 0.0, 0.0, color as f32],
                     [upp_left.0 * width as f64, upp_left.1 * height as f64, size * width as f64, size * height as f64],
                     c.transform, g);
             }
