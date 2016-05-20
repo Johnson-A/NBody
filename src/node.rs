@@ -96,6 +96,10 @@ impl<'a> Children {
     fn mut_all_children(&'a mut self) -> Flatten<IterMut<'a, Option<Section>>> {
         self.mut_children().iter_mut().flatten()
     }
+
+    fn has_node_children(&self) -> bool {
+        self.all_children().any(Section::is_node)
+    }
 }
 
 #[derive(Debug)]
@@ -184,21 +188,17 @@ impl Section {
         self.total_mass / self.width / self.width / 4.0
     }
 
+    pub fn upper_left(&self) -> Vector {
+        self.center - (Vec2(1.0, 1.0) * self.width)
+    }
+
     pub fn render(&self, reference: f64, total: f64) -> Vec<(Vector, f64, f64)> {
-        let density = self.density();
-
-        if self.total_mass / total < 1E-4 {
-            let upp_left = self.center - (Vec2(1.0, 1.0) * self.width);
-
-            if !self.is_node() {
-                vec![(upp_left, 0.0, 1.0)]
-            } else {
-                vec![(upp_left, self.width * 2.0, (density / reference).ln() / 5.0)]
-            }
+        if self.total_mass / total < 1E-4 || !self.sub.has_node_children() {
+            vec![(self.upper_left(), self.width * 2.0, (self.density() / reference).ln() / 5.0)]
         } else {
-            self.sub.all_children().map(|node|
-                node.render(reference, total)
-            ).flatten().collect()
+            self.sub.all_children()
+                .map(|node| node.render(reference, total))
+                .flatten().collect()
         }
     }
 

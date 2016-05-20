@@ -56,12 +56,12 @@ fn main() {
     });
 
     let mut window: PistonWindow =
-                    WindowSettings::new("NBody", [width, height])
-                    .exit_on_esc(true)
-                    // .opengl(OpenGL::V4_1)
-                    .vsync(true)
-                    .build()
-                    .unwrap();
+        WindowSettings::new("NBody", [width, height])
+        .exit_on_esc(true)
+        // .opengl(OpenGL::V4_4)
+        .vsync(true)
+        .build()
+        .unwrap();
 
     while let Some(e) = window.next() {
         window.draw_2d(&e, |c, g| {
