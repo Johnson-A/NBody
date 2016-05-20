@@ -55,8 +55,7 @@ fn main() {
         }
     });
 
-    let mut window: PistonWindow =
-        WindowSettings::new("NBody", [width, height])
+    let mut window: PistonWindow = WindowSettings::new("NBody", [width, height])
         .exit_on_esc(true)
         // .opengl(OpenGL::V4_4)
         .vsync(true)
@@ -69,10 +68,12 @@ fn main() {
 
             for &(upp_left, size, color) in positions.lock().unwrap().iter() {
                 // println!("{:?} {} {}", upp_left, size, color);
-                rectangle(
-                    [1.0, 0.0, 0.0, color as f32],
-                    [upp_left.0 * width as f64, upp_left.1 * height as f64, size * width as f64, size * height as f64],
-                    c.transform, g);
+                rectangle([1.0, 0.0, 0.0, color as f32],
+                          [upp_left.0 * width as f64,
+                           upp_left.1 * height as f64,
+                           size * width as f64,
+                           size * height as f64],
+                          c.transform, g);
             }
         });
     }

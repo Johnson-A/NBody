@@ -1,12 +1,12 @@
 use super::{DT, THETA_SQUARED};
 use vec::Vec2;
 
+use rand::random;
 use std::num::Zero;
 use std::ops::{Deref, DerefMut};
-use rayon::prelude::*;
-use rand::random;
-use itertools::{Flatten, Itertools};
 use std::slice::{Iter, IterMut};
+use rayon::prelude::*;
+use itertools::{Flatten, Itertools};
 
 #[derive(Debug)]
 pub struct Body {
@@ -18,37 +18,37 @@ pub struct Body {
 
 impl Body {
     pub fn generate_collision(num_bodies: usize) -> Vec<Body> {
-        (0..num_bodies/2).map(
-            |_|
-            Body {
-                x: Vec2(random::<f64>() / 2.0, random::<f64>() / 2.0),
-                v: Vec2(0.0, 0.0),
-                a: Vec2::zero(),
-                m: 1.0,
-            }
-        ).chain(
-            (0..num_bodies/2).map(
-                |_|
+        (0..num_bodies / 2)
+            .map(|_| {
+                Body {
+                    x: Vec2(random::<f64>() / 2.0, random::<f64>() / 2.0),
+                    v: Vec2(0.0, 0.0),
+                    a: Vec2::zero(),
+                    m: 1.0,
+                }
+            })
+            .chain((0..num_bodies / 2).map(|_| {
                 Body {
                     x: Vec2((1.0 + random::<f64>()) / 2.0, (1.0 + random::<f64>()) / 2.0),
                     v: Vec2(0.0, 0.0),
                     a: Vec2::zero(),
                     m: 1.0,
                 }
-            )
-        ).collect()
+            }))
+            .collect()
     }
 
     pub fn generate(num_bodies: usize) -> Vec<Body> {
-        (0..num_bodies).map(
-            |_|
-            Body {
-                x: Vec2(random::<f64>(), random::<f64>()),
-                v: Vec2(0.0, 0.0),
-                a: Vec2::zero(),
-                m: 1.0,
-            }
-        ).collect()
+        (0..num_bodies)
+            .map(|_| {
+                Body {
+                    x: Vec2(random(), random()),
+                    v: Vec2(0.0, 0.0),
+                    a: Vec2::zero(),
+                    m: 1.0,
+                }
+            })
+            .collect()
     }
 
     pub fn advance(&mut self) {
@@ -127,10 +127,10 @@ impl Section {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (p.0, p.1, p.0, p.1);
 
         for body in bodies {
-            if min_x > body.x.0 { min_x = body.x.0 }
-            if min_y > body.x.1 { min_y = body.x.1 }
-            if max_x < body.x.0 { max_x = body.x.0 }
-            if max_y < body.x.1 { max_y = body.x.1 }
+            min_x = min_x.min(body.x.0);
+            min_y = min_y.min(body.x.1);
+            max_x = max_x.max(body.x.0);
+            max_y = max_y.max(body.x.1);
         }
 
         let lower_left  = Vec2(min_x, min_y);
@@ -146,7 +146,9 @@ impl Section {
         bodies.par_iter_mut().for_each(|b| self.attract(b))
     }
 
-    fn is_node(&self) -> bool { self.sub.is_some() }
+    fn is_node(&self) -> bool {
+        self.sub.is_some()
+    }
 
     fn attract(&self, body: &mut Body) {
         for s in self.sub.all_children() {
@@ -239,25 +241,28 @@ impl Section {
 
         for &j in &offset {
             for &i in &offset {
-                children.push(Section::new(self.center, new_width, Vec2(i,j)));
+                children.push(Section::new(self.center, new_width, Vec2(i, j)));
             }
         }
 
         let mut parent_children = [None, None, None, None];
 
-        self.total_mass = children.into_par_iter().weight_max()
-                            .zip(parent_children.par_iter_mut())
-                            .enumerate().map(|(i, (mut node, pn))| {
-            for body in bodies {
-                if i == self.position(body.x) {
-                    node.add(body.x, body.m);
+        self.total_mass = children.into_par_iter()
+            .weight_max()
+            .zip(parent_children.par_iter_mut())
+            .enumerate()
+            .map(|(i, (mut node, pn))| {
+                for body in bodies {
+                    if i == self.position(body.x) {
+                        node.add(body.x, body.m);
+                    }
                 }
-            }
-            node.aggregate(); // Aggregate in parallel
-            let m = node.total_mass;
-            *pn = Some(node);
-            m
-        }).sum();
+                node.aggregate(); // Aggregate in parallel
+                let m = node.total_mass;
+                *pn = Some(node);
+                m
+            })
+            .sum();
 
         self.sub = Children(Some(box parent_children));
     }
