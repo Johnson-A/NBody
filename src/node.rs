@@ -29,8 +29,8 @@ impl Body {
             })
             .chain((0..num_bodies / 2).map(|_| {
                 Body {
-                    x: Vec2((1.0 + random::<f64>()) / 2.0, (1.0 + random::<f64>()) / 2.0),
-                    v: Vec2(0.0, 0.0),
+                    x: Vec2((0.5 + random::<f64>()) / 2.0, (1.2 + random::<f64>()) / 2.0),
+                    v: Vec2(0.0, -4000.0),
                     a: Vec2::zero(),
                     m: 1.0,
                 }
@@ -200,6 +200,16 @@ impl Section {
         } else {
             self.sub.all_children()
                 .map(|node| node.render(reference, total))
+                .flatten().collect()
+        }
+    }
+
+    pub fn render_simple(&self) -> Vec<(Vector, f64, f64)> {
+        if !self.is_node() {
+            vec![(self.com, 0.004, 1.0)]
+        } else {
+            self.sub.all_children()
+                .map(|node| node.render_simple())
                 .flatten().collect()
         }
     }

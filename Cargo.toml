@@ -6,6 +6,7 @@ version = "0.1.0"
 [dependencies]
 itertools = "*"
 num = "*"
+crossbeam = "*"
 piston_window = "*"
 pistoncore-sdl2_window = "*"
 rand = "*"

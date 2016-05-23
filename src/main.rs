@@ -3,6 +3,7 @@ extern crate rand;
 extern crate num;
 extern crate rayon;
 extern crate time;
+extern crate crossbeam;
 extern crate piston_window;
 extern crate sdl2_window;
 extern crate itertools;
@@ -19,8 +20,7 @@ use piston_window::*;
 use sdl2_window::Sdl2Window;
 use rayon::prelude::*;
 
-use std::thread;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use time::precise_time_s;
 
@@ -34,71 +34,71 @@ fn main() {
 
     let mut bodies = Body::generate_collision(N);
 
-    let redraw = Arc::new(AtomicBool::new(true));
-    let positions = Arc::new(Mutex::new(vec![]));
+    let run_simulation = AtomicBool::new(true);
+    let redraw = AtomicBool::new(true);
+    let positions = Mutex::new(vec![]);
 
-    {
-        let (positions, redraw) = (positions.clone(), redraw.clone());
+    crossbeam::scope(|scope| {
+        scope.spawn(|| {
+            let mut step: u64 = 0;
+            let start = precise_time_s();
 
-        thread::spawn(
-            move || {
-                let mut step: u64 = 0;
-                let start = precise_time_s();
+            while run_simulation.load(Ordering::Relaxed) {
+                step += 1;
 
-                loop {
-                    step += 1;
+                let mut parent = Section::containing(&bodies);
+                parent.parallel_add(&bodies);
+                parent.compute(&mut bodies);
 
-                    let mut parent = Section::containing(&bodies);
-                    parent.parallel_add(&bodies);
-                    parent.compute(&mut bodies);
+                bodies.par_iter_mut().for_each(Body::advance);
 
-                    bodies.par_iter_mut().for_each(Body::advance);
+                if step % 10 == 0 {
+                    println!("{:.3} steps / second", step as f64 / (precise_time_s() - start))
+                }
 
-                    if step % 1 == 0 {
-                        println!("{:.3}", step as f64 / (precise_time_s() - start))
-                    }
-
+                if !redraw.compare_and_swap(false, true, Ordering::Relaxed) {
                     println!("Overwriting render data");
 
-                    if !redraw.compare_and_swap(false, true, Ordering::Relaxed) {
-                        *positions.lock().unwrap() = parent.render(parent.density(), parent.total_mass);
-                    }
+                    *positions.lock().unwrap() = parent.render(parent.density(), parent.total_mass);
+                    // *positions.lock().unwrap() = parent.render_simple();
                 }
-            });
-    }
+            }
+        });
 
-    let mut window: PistonWindow<Sdl2Window> = WindowSettings::new("NBody", [width, height])
-        .exit_on_esc(true)
-        .vsync(true)
-        .build()
-        .unwrap();
+        let mut window: PistonWindow<Sdl2Window> = WindowSettings::new("NBody", [width, height])
+            .vsync(true)
+            .build()
+            .unwrap();
 
-    window.set_swap_buffers(false);
+        window.set_swap_buffers(false);
 
-    while let Some(e) = window.next() {
-        match e {
-            Event::Render(_args) => {
-                if redraw.compare_and_swap(true, false, Ordering::Relaxed) {
-                    window.draw_2d(&e, |c, g| {
-                        clear(color::WHITE, g);
-
+        while let Some(e) = window.next() {
+            match e {
+                Event::Render(_args) => {
+                    if redraw.compare_and_swap(true, false, Ordering::Relaxed) {
                         println!("Drawing");
 
-                        for &(upp_left, size, color) in positions.lock().unwrap().iter() {
-                            // println!("{:?} {} {}", upp_left, size, color);
-                            rectangle([1.0, 0.0, 0.0, color as f32],
-                                      [upp_left.0 * width as f64,
-                                       upp_left.1 * height as f64,
-                                       size * width as f64,
-                                       size * height as f64],
-                                      c.transform, g);
-                        }
-                    });
+                        window.draw_2d(&e, |c, g| {
+                            clear(color::WHITE, g);
 
-                    Window::swap_buffers(&mut window);
+                            for &(upp_left, size, color) in positions.lock().unwrap().iter() {
+                                rectangle([1.0, 0.0, 0.0, color as f32],
+                                          [upp_left.0 * width as f64,
+                                           upp_left.1 * height as f64,
+                                           size * width as f64,
+                                           size * height as f64],
+                                          c.transform, g);
+                            }
+                        });
+
+                        Window::swap_buffers(&mut window);
+                    }
                 }
-            },
-            _ => ()
-        };
-    }
+                _ => (),
+            };
+        }
+
+        // Stop the simulation when we close the window
+        run_simulation.store(false, Ordering::Relaxed);
+    });
 }
