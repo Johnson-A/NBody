@@ -4,6 +4,7 @@ extern crate num;
 extern crate rayon;
 extern crate time;
 extern crate piston_window;
+extern crate sdl2_window;
 extern crate itertools;
 
 #[macro_use]
@@ -15,10 +16,12 @@ pub mod vec;
 use node::*;
 
 use piston_window::*;
+use sdl2_window::Sdl2Window;
 use rayon::prelude::*;
 
 use std::thread;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use time::precise_time_s;
 
 const THETA: f64 = 0.3;
@@ -31,50 +34,71 @@ fn main() {
 
     let mut bodies = Body::generate_collision(N);
 
+    let redraw = Arc::new(AtomicBool::new(true));
     let positions = Arc::new(Mutex::new(vec![]));
-    let write_data = positions.clone();
 
-    thread::spawn(move || {
-        let mut step: u64 = 0;
-        let start = precise_time_s();
+    {
+        let (positions, redraw) = (positions.clone(), redraw.clone());
 
-        loop {
-            step += 1;
+        thread::spawn(
+            move || {
+                let mut step: u64 = 0;
+                let start = precise_time_s();
 
-            let mut parent = Section::containing(&bodies);
-            parent.parallel_add(&bodies);
-            parent.compute(&mut bodies);
+                loop {
+                    step += 1;
 
-            bodies.par_iter_mut().for_each(Body::advance);
+                    let mut parent = Section::containing(&bodies);
+                    parent.parallel_add(&bodies);
+                    parent.compute(&mut bodies);
 
-            if step % 1 == 0 {
-                println!("{:.3}", step as f64 / (precise_time_s() - start))
-            }
+                    bodies.par_iter_mut().for_each(Body::advance);
 
-            *write_data.lock().unwrap() = parent.render(parent.density(), parent.total_mass);
-        }
-    });
+                    if step % 1 == 0 {
+                        println!("{:.3}", step as f64 / (precise_time_s() - start))
+                    }
 
-    let mut window: PistonWindow = WindowSettings::new("NBody", [width, height])
+                    println!("Overwriting render data");
+
+                    if !redraw.compare_and_swap(false, true, Ordering::Relaxed) {
+                        *positions.lock().unwrap() = parent.render(parent.density(), parent.total_mass);
+                    }
+                }
+            });
+    }
+
+    let mut window: PistonWindow<Sdl2Window> = WindowSettings::new("NBody", [width, height])
         .exit_on_esc(true)
-        // .opengl(OpenGL::V4_4)
         .vsync(true)
         .build()
         .unwrap();
 
-    while let Some(e) = window.next() {
-        window.draw_2d(&e, |c, g| {
-            clear(color::WHITE, g);
+    window.set_swap_buffers(false);
 
-            for &(upp_left, size, color) in positions.lock().unwrap().iter() {
-                // println!("{:?} {} {}", upp_left, size, color);
-                rectangle([1.0, 0.0, 0.0, color as f32],
-                          [upp_left.0 * width as f64,
-                           upp_left.1 * height as f64,
-                           size * width as f64,
-                           size * height as f64],
-                          c.transform, g);
-            }
-        });
+    while let Some(e) = window.next() {
+        match e {
+            Event::Render(_args) => {
+                if redraw.compare_and_swap(true, false, Ordering::Relaxed) {
+                    window.draw_2d(&e, |c, g| {
+                        clear(color::WHITE, g);
+
+                        println!("Drawing");
+
+                        for &(upp_left, size, color) in positions.lock().unwrap().iter() {
+                            // println!("{:?} {} {}", upp_left, size, color);
+                            rectangle([1.0, 0.0, 0.0, color as f32],
+                                      [upp_left.0 * width as f64,
+                                       upp_left.1 * height as f64,
+                                       size * width as f64,
+                                       size * height as f64],
+                                      c.transform, g);
+                        }
+                    });
+
+                    Window::swap_buffers(&mut window);
+                }
+            },
+            _ => ()
+        };
     }
 }
