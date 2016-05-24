@@ -8,9 +8,6 @@ extern crate piston_window;
 extern crate sdl2_window;
 extern crate itertools;
 
-#[macro_use]
-pub mod util;
-
 pub mod node;
 pub mod vec;
 

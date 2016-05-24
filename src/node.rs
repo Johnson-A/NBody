@@ -7,6 +7,8 @@ use std::ops::{Deref, DerefMut};
 use std::slice::{Iter, IterMut};
 use rayon::prelude::*;
 use itertools::{Flatten, Itertools};
+use std::f64::consts::PI;
+use std::iter::Iterator;
 
 #[derive(Debug)]
 pub struct Body {
@@ -17,8 +19,35 @@ pub struct Body {
 }
 
 impl Body {
-    pub fn generate_collision(num_bodies: usize) -> Vec<Body> {
-        (0..num_bodies / 2)
+    pub fn galaxy(n: usize, center: Vector, outer_radius: f64, overall: Vector) -> Box<Iterator<Item=Body>> {
+        Box::new((0..n)
+            .map(move |_| {
+                let r = random::<f64>().powf(0.5) * outer_radius;
+                let theta = random::<f64>() * 2.0 * PI;
+                let m = 1.0;
+                let area_prop = (r / outer_radius).powi(2);
+                let acc = (n as f64 * m) * area_prop;
+                let speed = (acc * r).sqrt();
+                let vel = speed * Vec2(-theta.sin(), theta.cos());
+                let offset = r * Vec2(theta.cos(), theta.sin());
+
+                Body {
+                    x: center + offset,
+                    v: vel * 10.0 + overall,
+                    a: Vec2::zero(),
+                    m: m,
+                }
+            }))
+    }
+
+    pub fn generate_galaxy_collision(n: usize) -> Vec<Body> {
+        let g1 = Body::galaxy(n / 2, Vec2(0.3, 0.3), 0.2, Vec2(0.0, 500.0));
+        let g2 = Body::galaxy(n / 2, Vec2(0.6, 0.6), 0.2, Vec2(0.0, -500.0));
+        g1.chain(g2).collect()
+    }
+
+    pub fn generate_collision(n: usize) -> Vec<Body> {
+        (0..n / 2)
             .map(|_| {
                 Body {
                     x: Vec2(random::<f64>() / 2.0, random::<f64>() / 2.0),
@@ -27,7 +56,7 @@ impl Body {
                     m: 1.0,
                 }
             })
-            .chain((0..num_bodies / 2).map(|_| {
+            .chain((0..n / 2).map(|_| {
                 Body {
                     x: Vec2((0.5 + random::<f64>()) / 2.0, (1.2 + random::<f64>()) / 2.0),
                     v: Vec2(0.0, -4000.0),
@@ -38,8 +67,8 @@ impl Body {
             .collect()
     }
 
-    pub fn generate(num_bodies: usize) -> Vec<Body> {
-        (0..num_bodies)
+    pub fn generate(n: usize) -> Vec<Body> {
+        (0..n)
             .map(|_| {
                 Body {
                     x: Vec2(random(), random()),
