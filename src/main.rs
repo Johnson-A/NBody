@@ -30,8 +30,6 @@ const DT: f64 = 1E-6;
 fn main() {
     let (width, height) = (700, 700);
 
-    // let mut bodies = Body::generate_collision(N);
-    // let mut bodies = Body::galaxy(N, vec::Vec2(0.5, 0.5), 0.5);
     let mut bodies = generator::galaxy_collision(N);
 
     let run_simulation = AtomicBool::new(true);
